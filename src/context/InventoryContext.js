@@ -1,158 +1,317 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import AuthContext from './AuthContext';
 
-const InventoryContext = createContext();
+// Initial state
+const initialState = {
+  inventory: [],
+  loading: true,
+  error: null,
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  },
+  filters: {
+    search: '',
+    category: '',
+    sort: '-createdAt'
+  },
+  currentItem: null
+};
 
+// Create context
+const InventoryContext = createContext(initialState);
+
+// Reducer
+const inventoryReducer = (state, action) => {
+  switch (action.type) {
+    case 'GET_INVENTORY_REQUEST':
+      return {
+        ...state,
+        loading: true
+      };
+    case 'GET_INVENTORY_SUCCESS':
+      return {
+        ...state,
+        loading: false,
+        inventory: action.payload.data,
+        pagination: action.payload.pagination,
+        error: null
+      };
+    case 'GET_INVENTORY_ERROR':
+      return {
+        ...state,
+        loading: false,
+        error: action.payload
+      };
+    case 'GET_INVENTORY_ITEM_SUCCESS':
+      return {
+        ...state,
+        loading: false,
+        currentItem: action.payload,
+        error: null
+      };
+    case 'SET_FILTERS':
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          ...action.payload
+        },
+        pagination: {
+          ...state.pagination,
+          page: 1 // Reset to page 1 when filters change
+        }
+      };
+    case 'SET_PAGE':
+      return {
+        ...state,
+        pagination: {
+          ...state.pagination,
+          page: action.payload
+        }
+      };
+    case 'CLEAR_CURRENT_ITEM':
+      return {
+        ...state,
+        currentItem: null
+      };
+    case 'ADD_INVENTORY_ITEM':
+      return {
+        ...state,
+        inventory: [action.payload, ...state.inventory],
+        loading: false
+      };
+    case 'UPDATE_INVENTORY_ITEM':
+      return {
+        ...state,
+        inventory: state.inventory.map(item => 
+          item._id === action.payload._id ? action.payload : item
+        ),
+        currentItem: action.payload,
+        loading: false
+      };
+    case 'DELETE_INVENTORY_ITEM':
+      return {
+        ...state,
+        inventory: state.inventory.filter(item => item._id !== action.payload),
+        loading: false
+      };
+    default:
+      return state;
+  }
+};
+
+// Provider component
 export const InventoryProvider = ({ children }) => {
-  const [inventory, setInventory] = useState([]);
-  const [item, setItem] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
+  const [state, dispatch] = useReducer(inventoryReducer, initialState);
   const { token } = useContext(AuthContext);
-
-  // Create API instance with proper headers
-  const api = axios.create({
-    // Make sure this matches your server URL
-    baseURL: process.env.REACT_APP_API_URL || '/api',
+  
+  // Set up axios config with token
+  const config = useMemo(() => ({
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0'
+      Authorization: token ? `Bearer ${token}` : ''
     }
-  });
+  }), [token]);
 
-  // Set auth token for API calls
-  if (token) {
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-
-  // Get all inventory items with cache busting
-  const getInventory = async () => {
+  // Get all inventory items
+  const getInventory = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
+      dispatch({ type: 'GET_INVENTORY_REQUEST' });
       
-      // Add timestamp to prevent caching
-      const timestamp = new Date().getTime();
+      // Build query string - safely access state properties
+      const page = state.pagination?.page || 1;
+      const limit = state.pagination?.limit || 10;
+      const search = state.filters?.search || '';
+      const category = state.filters?.category || '';
+      const sort = state.filters?.sort || '-createdAt';
       
-      console.log('Fetching inventory with token:', token ? 'Token exists' : 'No token');
+      let queryParams = `page=${page}&limit=${limit}`;
       
-      // Make sure this URL matches your server route
-      const res = await api.get(`/inventory?_=${timestamp}`);
-      
-      console.log('Inventory API response:', res);
-      console.log('Inventory data:', res.data);
-      
-      if (res.data && res.data.success && Array.isArray(res.data.data)) {
-        console.log('Setting inventory with data array:', res.data.data);
-        setInventory(res.data.data);
-      } else if (res.data && Array.isArray(res.data)) {
-        console.log('Setting inventory with direct array:', res.data);
-        setInventory(res.data);
-      } else {
-        console.error('Invalid inventory data format:', res.data);
-        setInventory([]);
-        toast.error('Error loading inventory data: Invalid format');
+      if (sort) {
+        queryParams += `&sort=${sort}`;
       }
       
-      setLoading(false);
+      if (search) {
+        queryParams += `&search=${search}`;
+      }
+      
+      if (category) {
+        queryParams += `&category=${category}`;
+      }
+      
+      console.log(`Fetching inventory with params: ${queryParams}`);
+      
+      const res = await axios.get(`/api/inventory?${queryParams}`, config);
+      
+      dispatch({
+        type: 'GET_INVENTORY_SUCCESS',
+        payload: res.data
+      });
     } catch (err) {
       console.error('Error fetching inventory:', err);
-      setError(err.response?.data?.message || 'Error fetching inventory');
-      toast.error(err.response?.data?.message || 'Error fetching inventory');
-      setInventory([]);
-      setLoading(false);
+      
+      dispatch({
+        type: 'GET_INVENTORY_ERROR',
+        payload: err.response?.data?.error || 'Failed to load inventory items'
+      });
+      
+      toast.error(err.response?.data?.error || 'Failed to load inventory items');
     }
-  };
+  }, [state.pagination, state.filters, config]);
 
   // Get single inventory item
-  const getInventoryItem = async (id) => {
+  const getInventoryItem = useCallback(async (id) => {
     try {
-      setLoading(true);
-      const timestamp = new Date().getTime();
-      const res = await api.get(`/inventory/${id}?_=${timestamp}`);
-      setItem(res.data.data);
-      setLoading(false);
+      dispatch({ type: 'GET_INVENTORY_REQUEST' });
+      
+      const res = await axios.get(`/api/inventory/${id}`, config);
+      
+      dispatch({
+        type: 'GET_INVENTORY_ITEM_SUCCESS',
+        payload: res.data.data
+      });
+      
       return res.data.data;
     } catch (err) {
-      setError(err.response?.data?.message || 'Error fetching inventory item');
-      toast.error(err.response?.data?.message || 'Error fetching inventory item');
-      setLoading(false);
-      throw err;
+      console.error('Error fetching inventory item:', err);
+      
+      dispatch({
+        type: 'GET_INVENTORY_ERROR',
+        payload: err.response?.data?.error || 'Failed to load inventory item'
+      });
+      
+      toast.error(err.response?.data?.error || 'Failed to load inventory item');
+      return null;
     }
-  };
+  }, [config]);
 
-  // Create inventory item
-  const createInventoryItem = async (itemData) => {
+  // Add inventory item
+  const addInventoryItem = useCallback(async (itemData) => {
     try {
-      // Ensure all numeric fields are numbers, not strings
-      const processedData = {
-        ...itemData,
-        quantity: Number(itemData.quantity),
-        price: Number(itemData.price),
-        cost: Number(itemData.cost),
-        reorderLevel: Number(itemData.reorderLevel),
-        minStockLevel: Number(itemData.reorderLevel)
-      };
+      dispatch({ type: 'GET_INVENTORY_REQUEST' });
       
-      console.log('Creating inventory item with data:', processedData);
+      const res = await axios.post('/api/inventory', itemData, config);
       
-      const res = await api.post('/inventory', processedData);
-      setInventory([...inventory, res.data.data]);
-      toast.success('Inventory item created successfully');
+      dispatch({
+        type: 'ADD_INVENTORY_ITEM',
+        payload: res.data.data
+      });
+      
+      toast.success('Inventory item added successfully');
       return res.data.data;
     } catch (err) {
-      console.error('Error creating inventory item:', err.response?.data || err);
-      setError(err.response?.data?.message || 'Error creating inventory item');
-      toast.error(err.response?.data?.message || 'Error creating inventory item');
-      throw err;
+      console.error('Error adding inventory item:', err);
+      
+      dispatch({
+        type: 'GET_INVENTORY_ERROR',
+        payload: err.response?.data?.error || 'Failed to add inventory item'
+      });
+      
+      toast.error(err.response?.data?.error || 'Failed to add inventory item');
+      return null;
     }
-  };
+  }, [config]);
 
   // Update inventory item
-  const updateInventoryItem = async (id, itemData) => {
+  const updateInventoryItem = useCallback(async (id, itemData) => {
     try {
-      const res = await api.put(`/inventory/${id}`, itemData);
-      setInventory(inventory.map(i => i._id === id ? res.data.data : i));
-      setItem(res.data.data);
+      dispatch({ type: 'GET_INVENTORY_REQUEST' });
+      
+      const res = await axios.put(`/api/inventory/${id}`, itemData, config);
+      
+      dispatch({
+        type: 'UPDATE_INVENTORY_ITEM',
+        payload: res.data.data
+      });
+      
       toast.success('Inventory item updated successfully');
       return res.data.data;
     } catch (err) {
-      setError(err.response?.data?.message || 'Error updating inventory item');
-      toast.error(err.response?.data?.message || 'Error updating inventory item');
-      throw err;
+      console.error('Error updating inventory item:', err);
+      
+      dispatch({
+        type: 'GET_INVENTORY_ERROR',
+        payload: err.response?.data?.error || 'Failed to update inventory item'
+      });
+      
+      toast.error(err.response?.data?.error || 'Failed to update inventory item');
+      return null;
     }
-  };
+  }, [config]);
 
   // Delete inventory item
-  const deleteInventoryItem = async (id) => {
-    try {
-      await api.delete(`/inventory/${id}`);
-      setInventory(inventory.filter(i => i._id !== id));
-      toast.success('Inventory item deleted successfully');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error deleting inventory item');
-      toast.error(err.response?.data?.message || 'Error deleting inventory item');
-      throw err;
+  const deleteInventoryItem = useCallback(async (id) => {
+    if (window.confirm('Are you sure you want to delete this item?')) {
+      try {
+        await axios.delete(`/api/inventory/${id}`, config);
+        
+        dispatch({
+          type: 'DELETE_INVENTORY_ITEM',
+          payload: id
+        });
+        
+        toast.success('Inventory item deleted successfully');
+        return true;
+      } catch (err) {
+        console.error('Error deleting inventory item:', err);
+        
+        toast.error(err.response?.data?.error || 'Failed to delete inventory item');
+        return false;
+      }
     }
-  };
+    return false;
+  }, [config]);
+
+  // Set filters
+  const setFilters = useCallback((filters) => {
+    dispatch({
+      type: 'SET_FILTERS',
+      payload: filters
+    });
+  }, []);
+
+  // Set page
+  const setPage = useCallback((page) => {
+    dispatch({
+      type: 'SET_PAGE',
+      payload: page
+    });
+  }, []);
+
+  // Clear current item
+  const clearCurrentItem = useCallback(() => {
+    dispatch({ type: 'CLEAR_CURRENT_ITEM' });
+  }, []);
+
+  // Fetch inventory when pagination or filters change
+  useEffect(() => {
+    if (token) {
+      getInventory();
+    }
+  }, [token, getInventory]);
 
   return (
     <InventoryContext.Provider
       value={{
-        inventory,
-        item,
-        loading,
-        error,
+        inventory: state.inventory,
+        loading: state.loading,
+        error: state.error,
+        pagination: state.pagination,
+        filters: state.filters,
+        currentItem: state.currentItem,
         getInventory,
         getInventoryItem,
-        createInventoryItem,
+        addInventoryItem,
         updateInventoryItem,
-        deleteInventoryItem
+        deleteInventoryItem,
+        setFilters,
+        setPage,
+        clearCurrentItem
       }}
     >
       {children}
@@ -160,4 +319,16 @@ export const InventoryProvider = ({ children }) => {
   );
 };
 
+// Custom hook to use the inventory context
+export const useInventory = () => {
+  const context = useContext(InventoryContext);
+  
+  if (context === undefined) {
+    throw new Error('useInventory must be used within an InventoryProvider');
+  }
+  
+  return context;
+};
+
+// Export the context as default for backward compatibility
 export default InventoryContext; 

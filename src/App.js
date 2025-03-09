@@ -1,6 +1,8 @@
 import React, { useContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Box, CssBaseline } from '@mui/material';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Layout components
 import Navbar from './components/layout/Navbar';
@@ -44,6 +46,7 @@ function App() {
   return (
     <>
       <CssBaseline />
+      <ToastContainer position="bottom-right" />
       <Box sx={{ display: 'flex' }}>
         {isAuthenticated && <Navbar />}
         {isAuthenticated && <Sidebar />}
