@@ -14,7 +14,8 @@ import {
   MenuItem,
   CircularProgress,
   Autocomplete,
-  Chip
+  Chip,
+  InputAdornment
 } from '@mui/material';
 import { toast } from 'react-toastify';
 
@@ -120,7 +121,7 @@ const EditInventoryItem = () => {
           onSubmit={handleSubmit}
           enableReinitialize
         >
-          {({ errors, touched, isSubmitting }) => (
+          {({ errors, touched, isSubmitting, handleChange, values }) => (
             <Form>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
@@ -179,11 +180,16 @@ const EditInventoryItem = () => {
                   <Field
                     as={TextField}
                     fullWidth
-                    label="Price"
+                    label="Price (₹)"
                     name="price"
                     type="number"
+                    value={values.price}
+                    onChange={handleChange}
                     error={touched.price && Boolean(errors.price)}
                     helperText={touched.price && errors.price}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                    }}
                   />
                 </Grid>
                 

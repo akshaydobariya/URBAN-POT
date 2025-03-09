@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   AppBar,
@@ -9,96 +9,179 @@ import {
   Menu,
   MenuItem,
   Avatar,
-  Tooltip
+  Tooltip,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   Menu as MenuIcon,
   Notifications as NotificationsIcon,
-  AccountCircle
+  AccountCircle,
+  Dashboard as DashboardIcon,
+  Inventory as InventoryIcon,
+  ShoppingCart as SalesIcon,
+  People as PeopleIcon,
+  Settings as SettingsIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import AuthContext from '../../context/AuthContext';
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = React.useState(null);
-
-  const handleMenu = (event) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  
+  const handleProfileMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleClose = () => {
+  const handleMenuClose = () => {
     setAnchorEl(null);
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-    handleClose();
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
   };
 
   const handleProfile = () => {
     navigate('/profile');
-    handleClose();
+    handleMenuClose();
   };
 
-  return (
-    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-      <Toolbar>
-        <IconButton
-          color="inherit"
-          aria-label="open drawer"
-          edge="start"
-          sx={{ mr: 2, display: { sm: 'none' } }}
-        >
-          <MenuIcon />
+  const handleLogout = () => {
+    logout();
+    handleMenuClose();
+  };
+  
+  const handleNavigation = (path) => {
+    navigate(path);
+    setMobileOpen(false);
+  };
+  
+  const drawer = (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+        <IconButton onClick={handleDrawerToggle}>
+          <CloseIcon />
         </IconButton>
-        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-          Inventory Management
-        </Typography>
-        
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton color="inherit">
-            <NotificationsIcon />
-          </IconButton>
-          
-          <Tooltip title="Account settings">
+      </Box>
+      <Divider />
+      <List>
+        <ListItem button onClick={() => handleNavigation('/')}>
+          <ListItemIcon>
+            <DashboardIcon />
+          </ListItemIcon>
+          <ListItemText primary="Dashboard" />
+        </ListItem>
+        <ListItem button onClick={() => handleNavigation('/inventory')}>
+          <ListItemIcon>
+            <InventoryIcon />
+          </ListItemIcon>
+          <ListItemText primary="Inventory" />
+        </ListItem>
+        <ListItem button onClick={() => handleNavigation('/sales')}>
+          <ListItemIcon>
+            <SalesIcon />
+          </ListItemIcon>
+          <ListItemText primary="Sales" />
+        </ListItem>
+        {user && user.role === 'admin' && (
+          <ListItem button onClick={() => handleNavigation('/users')}>
+            <ListItemIcon>
+              <PeopleIcon />
+            </ListItemIcon>
+            <ListItemText primary="Users" />
+          </ListItem>
+        )}
+        <ListItem button onClick={() => handleNavigation('/profile')}>
+          <ListItemIcon>
+            <SettingsIcon />
+          </ListItemIcon>
+          <ListItemText primary="Profile" />
+        </ListItem>
+      </List>
+    </Box>
+  );
+
+  return (
+    <>
+      <AppBar position="fixed">
+        <Toolbar>
+          {user && (
             <IconButton
-              onClick={handleMenu}
+              edge="start"
               color="inherit"
+              aria-label="menu"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2 }}
             >
-              {user?.avatar ? (
-                <Avatar 
-                  alt={user.name} 
-                  src={user.avatar} 
-                  sx={{ width: 32, height: 32 }}
-                />
-              ) : (
-                <AccountCircle />
-              )}
+              <MenuIcon />
             </IconButton>
-          </Tooltip>
-          <Menu
-            id="menu-appbar"
-            anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(anchorEl)}
-            onClose={handleClose}
-          >
-            <MenuItem onClick={handleProfile}>Profile</MenuItem>
-            <MenuItem onClick={handleLogout}>Logout</MenuItem>
-          </Menu>
-        </Box>
-      </Toolbar>
-    </AppBar>
+          )}
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Inventory Management
+          </Typography>
+          {user && (
+            <Box>
+              <Tooltip title="Account settings">
+                <IconButton
+                  onClick={handleProfileMenuOpen}
+                  size="large"
+                  edge="end"
+                  color="inherit"
+                >
+                  <AccountCircle />
+                </IconButton>
+              </Tooltip>
+              <Menu
+                id="menu-appbar"
+                anchorEl={anchorEl}
+                anchorOrigin={{
+                  vertical: 'bottom',
+                  horizontal: 'right',
+                }}
+                keepMounted
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+              >
+                <MenuItem onClick={handleProfile}>Profile</MenuItem>
+                <MenuItem onClick={handleLogout}>Logout</MenuItem>
+              </Menu>
+            </Box>
+          )}
+        </Toolbar>
+      </AppBar>
+      
+      {/* Mobile drawer */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile
+        }}
+        sx={{
+          display: { xs: 'block' },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
+        }}
+      >
+        {drawer}
+      </Drawer>
+    </>
   );
 };
 

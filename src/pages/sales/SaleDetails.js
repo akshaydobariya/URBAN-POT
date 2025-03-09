@@ -224,7 +224,7 @@ const SaleDetails = () => {
               Total
             </Typography>
             <Typography variant="body1" gutterBottom fontWeight="bold">
-              ${sale.total.toFixed(2)}
+              ₹{sale.total.toLocaleString('en-IN')}
             </Typography>
           </Grid>
           
@@ -248,9 +248,9 @@ const SaleDetails = () => {
                   {sale.items.map((item) => (
                     <TableRow key={item._id}>
                       <TableCell>{item.item.name}</TableCell>
-                      <TableCell>${item.price.toFixed(2)}</TableCell>
+                      <TableCell>₹{item.price.toLocaleString('en-IN')}</TableCell>
                       <TableCell>{item.quantity}</TableCell>
-                      <TableCell>${(item.price * item.quantity).toFixed(2)}</TableCell>
+                      <TableCell>₹{(item.price * item.quantity).toLocaleString('en-IN')}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

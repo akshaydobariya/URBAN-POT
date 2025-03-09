@@ -20,7 +20,8 @@ import {
   InputLabel,
   Select,
   CircularProgress,
-  Alert
+  Alert,
+  InputAdornment
 } from '@mui/material';
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import SalesContext from '../../context/SalesContext';
@@ -112,6 +113,13 @@ const AddSale = () => {
         ...updatedItems[index],
         quantity,
         subtotal: quantity * updatedItems[index].price
+      };
+    } else if (name === 'price') {
+      const price = parseFloat(value) || 0;
+      updatedItems[index] = {
+        ...updatedItems[index],
+        price,
+        subtotal: price * updatedItems[index].quantity
       };
     }
     
@@ -287,7 +295,7 @@ const AddSale = () => {
                             >
                               {inventory.map((product) => (
                                 <MenuItem key={product._id} value={product._id}>
-                                  {product.name} (${product.price.toFixed(2)})
+                                  {product.name} (${product.price.toLocaleString('en-IN')})
                                 </MenuItem>
                               ))}
                             </Select>
@@ -304,10 +312,20 @@ const AddSale = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          ${item.price.toFixed(2)}
+                          <TextField
+                            fullWidth
+                            name={`items.${index}.price`}
+                            label="Price (₹)"
+                            type="number"
+                            value={item.price}
+                            onChange={(e) => handleItemChange(index, e)}
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                            }}
+                          />
                         </TableCell>
                         <TableCell>
-                          ${item.subtotal.toFixed(2)}
+                          ${item.subtotal.toLocaleString('en-IN')}
                         </TableCell>
                         <TableCell>
                           <IconButton 
@@ -347,7 +365,7 @@ const AddSale = () => {
             
             <Grid item xs={12}>
               <Typography variant="h6" align="right">
-                Total: ${total.toFixed(2)}
+                Total: ₹{total.toLocaleString('en-IN')}
               </Typography>
             </Grid>
             

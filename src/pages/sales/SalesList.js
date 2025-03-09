@@ -27,7 +27,14 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination
+  TablePagination,
+  Alert,
+  Card,
+  CardContent,
+  CardActions,
+  Grid,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -47,12 +54,14 @@ import SalesContext from '../../context/SalesContext';
 const SalesList = () => {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const { sales, loading, getSales, deleteSale } = useContext(SalesContext);
+  const { sales, loading, error, getSales, deleteSale } = useContext(SalesContext);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(isMobile ? 5 : 10);
   const [totalItems, setTotalItems] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [saleToDelete, setSaleToDelete] = useState(null);
@@ -185,7 +194,7 @@ const SalesList = () => {
       headerName: 'Total', 
       flex: 0.6, 
       minWidth: 100,
-      valueFormatter: (params) => `$${params.value.toFixed(2)}`
+      valueFormatter: (params) => `₹${params.value.toLocaleString('en-IN')}`
     },
     { 
       field: 'status', 
@@ -270,111 +279,212 @@ const SalesList = () => {
     }
   ];
 
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+  
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+  
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+    setPage(0);
+  };
+
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
         <CircularProgress />
       </Box>
     );
   }
 
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
+
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1">
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4, px: isMobile ? 1 : 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap' }}>
+        <Typography variant={isMobile ? "h5" : "h4"} component="h1" gutterBottom sx={{ mr: 2 }}>
           Sales
         </Typography>
-        
-        {canEdit && (
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            component={Link}
-            to="/sales/add"
-          >
-            New Sale
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/sales/add')}
+          size={isMobile ? "small" : "medium"}
+          sx={{ mt: isMobile ? 1 : 0 }}
+        >
+          Add Sale
+        </Button>
       </Box>
       
-      <Paper sx={{ p: 2, mb: 4 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <TextField
-            label="Search Customer"
-            variant="outlined"
-            size="small"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            sx={{ flexGrow: 1, minWidth: '200px' }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  {searchTerm && (
-                    <IconButton
-                      aria-label="clear search"
-                      onClick={handleClearSearch}
-                      edge="end"
-                      size="small"
-                    >
-                      <ClearIcon />
-                    </IconButton>
-                  )}
-                  <IconButton
-                    aria-label="search"
-                    onClick={handleSearch}
-                    edge="end"
-                    size="small"
-                  >
-                    <SearchIcon />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-          
-          <FormControl sx={{ minWidth: '200px' }} size="small">
-            <InputLabel id="status-filter-label">Status</InputLabel>
-            <Select
-              labelId="status-filter-label"
-              id="status-filter"
-              value={statusFilter}
-              label="Status"
-              onChange={handleStatusFilterChange}
-            >
-              <MenuItem value="">
-                <em>All Statuses</em>
-              </MenuItem>
-              <MenuItem value="completed">Completed</MenuItem>
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="cancelled">Cancelled</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-      </Paper>
+      <TextField
+        fullWidth
+        variant="outlined"
+        placeholder="Search sales..."
+        value={searchTerm}
+        onChange={handleSearchChange}
+        sx={{ mb: 3 }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon />
+            </InputAdornment>
+          ),
+        }}
+      />
       
-      <Paper sx={{ height: 500, width: '100%' }}>
-        <DataGrid
-          rows={filteredSales}
-          columns={columns}
-          pagination
-          pageSize={pageSize}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          rowCount={totalItems}
-          paginationMode="server"
-          onPageChange={(newPage) => setPage(newPage)}
-          onPageSizeChange={(newPageSize) => setPageSize(newPageSize)}
-          loading={loading}
-          disableSelectionOnClick
-          getRowId={(row) => row._id}
-          sx={{
-            '& .MuiDataGrid-cell:focus': {
-              outline: 'none',
-            },
-          }}
-        />
-      </Paper>
+      {isMobile ? (
+        // Mobile view - cards
+        <Box>
+          {filteredSales.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((sale) => (
+            <Card key={sale._id} sx={{ mb: 2 }}>
+              <CardContent sx={{ pb: 1 }}>
+                <Typography variant="h6" component="div">
+                  {sale.customer}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Date: {format(new Date(sale.createdAt), 'MMM dd, yyyy')}
+                </Typography>
+                <Grid container spacing={1} sx={{ mt: 1 }}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">
+                      Total: ₹{sale.total.toLocaleString('en-IN')}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Chip 
+                      label={sale.status} 
+                      color={
+                        sale.status === 'Completed' ? 'success' : 
+                        sale.status === 'Pending' ? 'warning' : 'error'
+                      }
+                      size="small"
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+              <CardActions>
+                <IconButton 
+                  size="small" 
+                  onClick={() => navigate(`/sales/${sale._id}`)}
+                  color="primary"
+                >
+                  <VisibilityIcon />
+                </IconButton>
+                <IconButton 
+                  size="small" 
+                  onClick={() => navigate(`/sales/${sale._id}/edit`)}
+                  color="secondary"
+                >
+                  <EditIcon />
+                </IconButton>
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleDeleteClick(sale)}
+                  color="error"
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </CardActions>
+            </Card>
+          ))}
+          
+          {filteredSales.length === 0 && (
+            <Typography variant="body1" sx={{ textAlign: 'center', my: 4 }}>
+              No sales found.
+            </Typography>
+          )}
+        </Box>
+      ) : (
+        // Desktop view - table
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Customer</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Total</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredSales.length > 0 ? (
+                  filteredSales
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((sale) => (
+                      <TableRow key={sale._id}>
+                        <TableCell>{sale.customer}</TableCell>
+                        <TableCell>{format(new Date(sale.createdAt), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell>₹{sale.total.toLocaleString('en-IN')}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={sale.status} 
+                            color={
+                              sale.status === 'Completed' ? 'success' : 
+                              sale.status === 'Pending' ? 'warning' : 'error'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => navigate(`/sales/${sale._id}`)}
+                            color="primary"
+                          >
+                            <VisibilityIcon />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => navigate(`/sales/${sale._id}/edit`)}
+                            color="secondary"
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleDeleteClick(sale)}
+                            color="error"
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      No sales found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      )}
+      
+      <TablePagination
+        rowsPerPageOptions={isMobile ? [5, 10] : [5, 10, 25]}
+        component="div"
+        count={filteredSales.length}
+        rowsPerPage={rowsPerPage}
+        page={page}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
+      />
       
       {/* Delete Confirmation Dialog */}
       <Dialog
@@ -384,7 +494,7 @@ const SalesList = () => {
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this sale? This action cannot be undone.
+            Are you sure you want to delete this sale for {saleToDelete?.customer}? This action cannot be undone.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

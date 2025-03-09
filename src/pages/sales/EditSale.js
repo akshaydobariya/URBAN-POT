@@ -21,7 +21,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Divider
+  Divider,
+  InputAdornment
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -300,7 +301,10 @@ const EditSale = () => {
                                       as={TextField}
                                       name={`items.${index}.price`}
                                       type="number"
-                                      InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                                      InputProps={{
+                                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                                        inputProps: { min: 0, step: 0.01 }
+                                      }}
                                       error={
                                         touched.items?.[index]?.price && 
                                         Boolean(errors.items?.[index]?.price)
@@ -328,7 +332,7 @@ const EditSale = () => {
                                     />
                                   </TableCell>
                                   <TableCell align="right">
-                                    ${((item.price || 0) * (item.quantity || 0)).toFixed(2)}
+                                    {((item.price || 0) * (item.quantity || 0)).toLocaleString('en-IN')}
                                   </TableCell>
                                   <TableCell align="center">
                                     <IconButton
@@ -373,7 +377,7 @@ const EditSale = () => {
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="h6">
-                      Total: ${values.items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0).toFixed(2)}
+                      Total: {values.items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 0), 0).toLocaleString('en-IN')}
                     </Typography>
                     
                     <Box sx={{ display: 'flex', gap: 2 }}>

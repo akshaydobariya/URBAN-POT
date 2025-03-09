@@ -10,7 +10,8 @@ import {
   Paper,
   MenuItem,
   CircularProgress,
-  Alert
+  Alert,
+  InputAdornment
 } from '@mui/material';
 import InventoryContext from '../../context/InventoryContext';
 
@@ -236,12 +237,17 @@ const AddInventoryItem = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                type="number"
-                label="Price"
+                id="price"
                 name="price"
+                label="Price (₹)"
+                type="number"
                 value={price}
                 onChange={handleChange}
-                inputProps={{ min: 0, step: 0.01 }}
+                error={false}
+                helperText=""
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                }}
                 required
               />
             </Grid>
